@@ -22,7 +22,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        name: [gcc-13]
+        include:
+          - name: k230-v6.8
+            abi: rv64
+            gcc: gcc-13
+            branch: k230-v6.8-wip
+
+          - name: k230-v6.6
+            abi: rv64ilp32
+            gcc: gcc-13
+            branch: k230-6.6-ilp32
 
     steps:
       - name: Install software
@@ -41,13 +50,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: revysr/linux
-          ref: k230-v6.8-wip
+          ref: ${{ matrix.branch }}
           path: linux
           
       - name: Download toolchain
         run: |
               mkdir output
-              if [[ ${{ matrix.name }} = "thead-gcc" ]]; then
+              if [[ ${{ matrix.gcc }} = "thead-gcc" ]]; then
                 ${wget_alias} ${xuantie_toolchain}/${toolchain_file_name}
                 tar -xvf ${toolchain_file_name} -C /opt
               else
@@ -62,12 +71,17 @@ jobs:
       - name: Compile linux kernel
         run: |
               pushd linux
-                make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} k230_evb_linux_enable_vector_defconfig
+                if [[ ${{ matrix.abi }} = "rv64ilp32" ]]; then
+                  make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} k230_evb_linux_enable_vector_defconfig 64ilp32.config
+                else
+                  make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} k230_evb_linux_enable_vector_defconfig
+                fi
+                
                 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} -j$(nproc) dtbs
                 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} -j$(nproc)
-                cp -v arch/riscv/boot/Image ../output/
-                cp -v arch/riscv/boot/dts/canaan/k230_evb.dtb ../output/
-                cp -v arch/riscv/boot/dts/canaan/k230_cammv.dtb ../output/
+                cp -v arch/riscv/boot/Image ../output/Image_${{ matrix.abi }}
+                cp -v arch/riscv/boot/dts/canaan/k230_evb.dtb ../output/k230_evb_${{ matrix.abi }}.dtb
+                cp -v arch/riscv/boot/dts/canaan/k230_cammv.dtb ../output/k230_cammv_${{ matrix.abi }}.dtb
               popd
               tree ${GITHUB_WORKSPACE}/output
 
@@ -75,24 +89,24 @@ jobs:
         run: |
               pushd opensbi
                 make PLATFORM=generic FW_PAYLOAD=y \
-                  FW_FDT_PATH=../output/k230_evb.dtb \
-                  FW_PAYLOAD_PATH=../output/Image \
+                  FW_FDT_PATH=../output/k230_evb_${{ matrix.abi }}.dtb \
+                  FW_PAYLOAD_PATH=../output/Image_${{ matrix.abi }} \
                   FW_TEXT_START=0x0 \
                   -j $(nproc)
-                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_evb.bin
+                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_evb_${{ matrix.abi }}.bin
                 make clean
                 make PLATFORM=generic FW_PAYLOAD=y \
-                  FW_FDT_PATH=../output/k230_cammv.dtb \
-                  FW_PAYLOAD_PATH=../output/Image \
+                  FW_FDT_PATH=../output/k230_cammv_${{ matrix.abi }}.dtb \
+                  FW_PAYLOAD_PATH=../output/Image_${{ matrix.abi }} \
                   FW_TEXT_START=0x0 \
                   -j $(nproc)
-                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_cammv.bin
+                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_cammv_${{ matrix.abi }}.bin
               popd
               tree ${GITHUB_WORKSPACE}/output
       
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
-          name: k230-payload-${{ matrix.name }}
+          name: k230-payload-${{ matrix.name }}-${{ matrix.abi }}
           path: output/*
           retention-days: 30
