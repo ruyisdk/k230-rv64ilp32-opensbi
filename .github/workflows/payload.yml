@@ -12,6 +12,8 @@ env:
   toolchain_file_name: Xuantie-900-gcc-linux-5.10.4-glibc-x86_64-V2.8.0-20231018.tar.gz
   mainline_toolchain: https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.02.02
   mainline_toolchain_file_name: riscv64-glibc-ubuntu-22.04-gcc-nightly-2024.02.02-nightly.tar.gz
+  rv64ilp32_toolchain: https://github.com/ruyisdk/riscv-gnu-toolchain-rv64ilp32/releases/download/2024.02.25
+  rv64ilp32_toolchain_file_name: riscv64ilp32-elf-ubuntu-22.04-gcc-nightly-2024.02.25-nightly.tar.gz
   wget_alias: 'wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 0'
   ARCH: riscv
   CROSS_COMPILE: riscv64-unknown-linux-gnu-
@@ -27,11 +29,16 @@ jobs:
             abi: rv64
             gcc: gcc-13
             branch: k230-6.6-ilp32
+            triple: riscv64-unknown-linux-gnu-
 
           - name: k230-v6.6-rv64ilp32
             abi: rv64ilp32
-            gcc: gcc-13
+            gcc: rv64ilp32
             branch: k230-6.6-ilp32
+            triple: riscv64-unknown-elf-
+
+    env:
+      CROSS_COMPILE: ${{ matrix.triple }}
 
     steps:
       - name: Install software
@@ -59,6 +66,9 @@ jobs:
               if [[ ${{ matrix.gcc }} = "thead-gcc" ]]; then
                 ${wget_alias} ${xuantie_toolchain}/${toolchain_file_name}
                 tar -xvf ${toolchain_file_name} -C /opt
+              elif [[ ${{ matrix.gcc }} = "rv64ilp32" ]]; then
+                ${wget_alias} ${rv64ilp32_toolchain}/${rv64ilp32_toolchain_file_name}
+                tar -xvf ${rv64ilp32_toolchain_file_name} -C /opt
               else
                 ${wget_alias} ${mainline_toolchain}/${mainline_toolchain_file_name}
                 tar -xvf ${mainline_toolchain_file_name} -C /opt
