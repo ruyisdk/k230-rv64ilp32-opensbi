@@ -23,12 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: k230-v6.8
+          - name: k230-v6.6-rv64
             abi: rv64
             gcc: gcc-13
-            branch: k230-v6.8-wip
+            branch: k230-6.6-ilp32
 
-          - name: k230-v6.6
+          - name: k230-v6.6-rv64ilp32
             abi: rv64ilp32
             gcc: gcc-13
             branch: k230-6.6-ilp32
@@ -49,10 +49,10 @@ jobs:
       - name: Checkout k230 kernel
         uses: actions/checkout@v4
         with:
-          repository: revysr/linux
+          repository: ruyisdk/k230-rv64ilp32-linux-kernel
           ref: ${{ matrix.branch }}
           path: linux
-          
+
       - name: Download toolchain
         run: |
               mkdir output
@@ -76,7 +76,7 @@ jobs:
                 else
                   make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} k230_evb_linux_enable_vector_defconfig
                 fi
-                
+
                 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} -j$(nproc) dtbs
                 make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} -j$(nproc)
 
@@ -84,7 +84,7 @@ jobs:
                 cp -v arch/riscv/boot/Image ../output/Image_${{ matrix.abi }}
                 cp -v Documentation/admin-guide/kdump/gdbmacros.txt ../output/gdbmacros_${{ matrix.abi }}.txt
                 cp -v arch/riscv/boot/dts/canaan/k230_evb.dtb ../output/k230_evb_${{ matrix.abi }}.dtb
-                cp -v arch/riscv/boot/dts/canaan/k230_cammv.dtb ../output/k230_cammv_${{ matrix.abi }}.dtb
+                cp -v arch/riscv/boot/dts/canaan/k230_canmv.dtb ../output/k230_canmv_${{ matrix.abi }}.dtb
               popd
               tree ${GITHUB_WORKSPACE}/output
 
@@ -99,14 +99,14 @@ jobs:
                 cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_evb_${{ matrix.abi }}.bin
                 make clean
                 make PLATFORM=generic FW_PAYLOAD=y \
-                  FW_FDT_PATH=../output/k230_cammv_${{ matrix.abi }}.dtb \
+                  FW_FDT_PATH=../output/k230_canmv_${{ matrix.abi }}.dtb \
                   FW_PAYLOAD_PATH=../output/Image_${{ matrix.abi }} \
                   FW_TEXT_START=0x0 \
                   -j $(nproc)
-                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_cammv_${{ matrix.abi }}.bin
+                cp -v build/platform/generic/firmware/fw_payload.bin ../output/k230_canmv_${{ matrix.abi }}.bin
               popd
               tree ${GITHUB_WORKSPACE}/output
-      
+
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v3
         with:
